@@ -1,0 +1,327 @@
+---
+title: "Day6_Geo"
+format: html
+editor: visual
+---
+
+![](images/banner2.png)
+
+# Topics
+
+-   Rasters layers
+
+    -   Definition
+
+-   Remote sensing
+
+    -   What is a remote sensing?
+
+        -   Satellite - UAV - Airborns
+
+    -   What type of remote sensors exists?
+
+    -   Main features of remote sensors
+
+        -   Temporal resolution
+
+        -   Spatial resolution
+
+        -   Spectral resolution
+
+        -   Radiometric resolution
+
+    -   Earth surface object interaction with electromagnetic energy.
+
+    -   Data layers as images
+
+    -   Map algebra and Vegetation indices
+
+-   Supervised and Unsupervised classification.
+
+## Raster layers
+
+**Definition:**
+
+A raster is basically a matrix or an array, representing a rectangular area on the surface of the earth. To associate the matrix or the array with the particular area it represents, the raster has some additional *spatial* properties, on top of the *non-spatial* properties that any ordinary matrix or array has:
+
+-   *Non-spatial* properties
+
+    -   Values
+
+    -   Dimensions (rows, columns, layers)
+
+-   *Spatial* properties
+
+    -   Extent (xminxmin, yminymin, xmaxxmax, ymaxymax) *or* origin (xminxmin, ymaxymax) and resolution (deltaxdeltax, deltaydeltay)
+
+    -   Coordinate Reference System (CRS)
+
+[Reference](http://132.72.155.230:3838/r/matrices-and-rasters.html)
+
+The raster package supports raster objects in R. It provides an extensive set of functions to create, read, export, manipulate and process raster datasets. Aside from general raster data manipulation, raster provides many low-level functions that can form the basis to develop more advanced raster functionality.
+
+**raster** also lets you work on large raster datasets that are too large to fit into the main memory. In this case, raster provides the possibility to divide the raster into smaller chunks (rows or blocks), and processes these iteratively instead of loading the whole raster file into RAM (for more information, please refer to vignette("functions", package = "raster"). For the illustration of raster concepts, we will use datasets from the spData-Large (note these packages were loaded at the beginning of the chapter). It consists of a few raster objects and one vector object covering an area of the Zion National Park (Utah, USA). For example, srtm.tif is a digital elevation model of this area (for more details, see its documentation ?srtm). First, let's create a RasterLayer object named new_raster:
+
+PACKAGES MAS USADOS: RASTER, TERRA, Y OTRO.
+
+`raster_filepath = system.file("raster/srtm.tif", package = "spDataLarge") new_raster = raster(raster_filepath)`
+
+Typing the name of the raster into the console, will print out the raster header (extent, dimensions, resolution, CRS) and some additional information (class,data source name, summary of the raster values):
+
+new_raster
+
+`#> class : RasterLayer`
+
+`#> dimensions : 457, 465, 212505 (nrow, ncol, ncell)`
+
+`#> resolution : 0.000833, 0.000833 (x, y)`
+
+`#> extent : -113, -113, 37.1, 37.5 (xmin, xmax, ymin, ymax)`
+
+`#> coord. ref. : +proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0`
+
+`#> data source : /home/robin/R/x86_64-pc-linux../3.5/spDataLarge/raster/srtm.tif`
+
+`#> names : srtm`
+
+`#> values : 1024, 2892 (min, max)`
+
+Similar to the sf package, raster also provides **plot()** methods for its own classes.
+
+## Remote Sensing
+
+#### What is a remote sensing
+
+Satellite - UAV - Airborns
+
+#### What type of remote sensors exists?
+
+\*\*PASIVE: LOS COMUNES
+
+\*\*ACTIVE: RADARS SUCH AS SAOCOM
+
+#### Main features of remote sensors
+
+#### - Temporal resolution
+
+#### - Spatial resolution
+
+#### - Spectral resolution
+
+#### - Radiometric resolution: BITS
+
+#### Earth surface object interaction with electromagnetic energy.
+
+#### Data layers as images
+
+#### Map algebra and Vegetation indices
+
+####ALGORITMOS QUE SE USAN: OKLAHOMA - AURAVANT USA ESTE Y OTRO..
+
+Set of techniques and procedures that, operating on one or several layers in raster format, allows us to obtain derived information, generally in the form of new data layers. Although nothing prevents this process from being carried out on vector layers, it is understood that map algebra refers to the analysis developed on raster layers, since these, due to their regular structure and inherent characteristics, are much more suitable for proposing algorithms. and corresponding formulations. Procedures applied to vector geographic information are generally classified within other blocks of knowledge, such as the case of geometric operations.
+
+![](images/Screenshot_1.png)
+
+-   **Supervised and Unsupervised classification.**
+
+## Activities
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(ggrepel)
+library(raster)
+library(sf)
+library(rgdal)
+library(future)
+library(NbClust)
+library(factoextra)
+```
+
+#### Activity 1: NDVI layer creation from band 4 and band 8 of Sentinel-2
+
+```{r}
+Red_2022 <- raster('../data/Geo_Class1/Red_2022-06-17.tif')
+NIR_2022 <- raster('../data/Geo_Class1/NIR_2022-06-17.tif')
+```
+
+$$
+NDVI = (NIR - Red)/ (NIR + Red)
+$$
+
+```{r}
+NDVI_example_layer <- (NIR_2022 - Red_2022 ) / (Red_2022 + NIR_2022) 
+plot(NDVI_example_layer)
+```
+
+```{r}
+  field_manhattan <- read_sf('../data/Geo_Class1/field_manhattan.shp')
+```
+
+```{r}
+field_manhattan_clipped <- raster::mask(NDVI_example_layer,field_manhattan)
+```
+
+```{r}
+plot(field_manhattan_clipped)
+```
+
+#### Activity 2: Management zone delineation through unsupervised classification using several raster products
+
+```{r}
+ndvi_ts <- read.csv('../data/Geo_Class1/TimeSeries_NDVI.txt',sep = ' ') %>%
+  mutate(Date = as.Date(Date),
+         year = year(Date)) %>%
+  dplyr::rename(date = Date)
+colnames(ndvi_ts)
+ndvi_ts
+```
+
+```{r}
+
+#para encontrar los picos de las curvas
+
+sm_max = ndvi_ts %>% 
+  na.exclude() %>%
+  group_by(year) %>%
+  mutate(smooth =predict(loess(NDVI~as.numeric(date),
+                               span=.4))) %>% 
+  slice_max(order_by = smooth)
+sm_max <- sm_max %>%
+  mutate(lb_day = date - days(20),
+         up_day = date + days(20)) %>% 
+  distinct(date, .keep_all = TRUE)
+sm_max
+```
+
+```{r}
+plot_time_serie <- ndvi_ts %>%
+  ggplot( aes( x = date, y = NDVI)) +
+  geom_point() + 
+  geom_smooth(span=.1) +
+  geom_point(data=sm_max, aes(y=smooth),color="red", size=3) +
+  geom_point(data=sm_max, aes(x = lb_day,y=smooth),color="red", size=1) +
+  geom_point(data=sm_max, aes(x = up_day,y=smooth),color="red", size=1) +
+  geom_text_repel(data = sm_max, aes(label=paste0("Peak: ",round(smooth,1))), color="black")
+
+plot_time_serie
+```
+
+<https://app.climateengine.com/climateEngine>
+
+```{r}
+#una vez que tengo los picos, es bueno descargar imagenes que contengan esas fechas y esos valores de NDVI (en el mismo climate engine, make map, descargo y elijo el rango de 2 dias antes del pico y dos dias despues, selecciono NDVI y download, tic en auto-fill name pq asi me descarga toda la data de las caracteristicas como su nombre)
+
+NDVI_2020 <- raster('../data/Geo_Class1/NDVI_2020-07-18.tif')
+NDVI_2021 <- raster('../data/Geo_Class1/NDVI_2021-07-18.tif')
+NDVI_2022 <- raster('../data/Geo_Class1/NDVI_2022-06-18.tif')
+```
+
+```{r}
+
+crop_extent <- readOGR(dsn='../data/Geo_Class1/field_manhattan.shp',layer="field_manhattan")
+
+stack <- raster::stack(NDVI_2020,NDVI_2021,NDVI_2022)
+
+names(stack)<-c("NDVI_2020-07-1","NDVI_2021-07-1","NDVI_2022-06-1") #stack es..
+
+stack <- projectRaster(stack, crs = crs(stack))
+```
+
+```{r}
+plot(stack)
+```
+
+```{r}
+points <- read_sf('../data/Geo_Class1/field_manhattan.shp') %>%
+  st_set_crs(st_crs("epsg:4326")) %>%
+  st_transform(crs=32614) %>% #transformo las coordenadas
+  st_make_grid(cellsize = 10, what = "centers") %>% #cellsize es el pixel de 10 metros, hago una grilla
+  st_as_sf() %>% #convierto de grilla a vector otra vez
+  dplyr::mutate(X = as.numeric(sf::st_coordinates(x)[,1]), #aca separo latitud y longitud en 2 columnas. Cuando miro las columnas estan en planares.
+                Y = as.numeric(sf::st_coordinates(x)[,2])) %>%
+  st_transform(crs=4326) %>% #aca transformo devuelta porque tiene que coincidir con las coordenadas de las imagenes
+  
+  
+  na.exclude() %>%
+  dplyr::select(X,Y)
+
+plot(points)
+```
+
+```{r}
+df_ndvi_data <- data.frame(points, raster::extract(stack, points, method='simple')) %>%
+  as.data.frame() %>%
+  dplyr::select(-x)
+df_ndvi_data
+```
+
+```{r}
+library(ade4)
+library(adespatial)
+library(spdep)
+#lo larga que sea la flecha te dice si es muy importante la variable o no 
+
+pca <-  dudi.pca(df_ndvi_data[,3:5], center=T, scale = TRUE, scannf = FALSE, nf = 5)
+
+coord <- coordinates(df_ndvi_data[,1:2])
+
+gri <- dnearneigh(coord, 0,30) 
+lw2 <- nb2listw(gri, style = "W") 
+
+ms <- adespatial::multispati(pca, lw2, scannf = F, nfposi = 5)
+par(mfrow=c(1,2))
+
+s.corcircle(pca$c1, fullcircle = TRUE, grid =TRUE, cgrid = 0,
+            box = FALSE,clabel = 0.6,possub = "topleft")
+
+s.corcircle(ms$c1, fullcircle = TRUE, grid =TRUE, cgrid = 0,
+            box = FALSE,clabel = 0.6,possub = "topleft")
+
+df_data <-cbind(df_ndvi_data,ms$li[,1:2])
+df_data[,6:7]
+```
+
+```{r}
+#evaluo muchos indices que me digan cual es el numero optimo numero de clusters
+
+future::plan(future::multicore(workers =
+                                 availableCores(constraints = "multicore")))
+
+res <- NbClust(scale(as.data.frame(df_data)[6:7]),
+               diss = NULL, distance = 'euclidean', min.nc = 2, max.nc = 5,
+               method = "kmeans", index = 'all')
+number_optimal <- fviz_nbclust(res, method = "silhouette", print.summary = TRUE) + theme_minimal()
+
+#res$Best.nc
+```
+
+```{r}
+number_optimal_df <- number_optimal$data %>% 
+  as.data.frame() %>%
+  filter(freq == max(freq)) 
+number_optimal_cluster <- as.numeric(number_optimal_df[1,1]) - 1
+number_optimal_cluster
+```
+
+```{r}
+km.res <- kmeans(scale(df_data[,6:7]), number_optimal_cluster, nstart = 25)
+kmeans_zone <- cbind(df_data, as.factor(km.res$cluster)) %>%
+  rename(Cluster = 'as.factor(km.res$cluster)') 
+
+
+
+####corremos este si el de arriba no anda definimos num opt 3!
+km.res <- kmeans(scale(df_data[,6:7]), 3, nstart = 25)
+kmeans_zone <- cbind(df_data, as.factor(km.res$cluster)) %>%
+  rename(Cluster = 'as.factor(km.res$cluster)') 
+```
+
+```{r}
+cluster_field <- rasterFromXYZ(data.frame(as.data.frame(kmeans_zone[c('X','Y','Cluster')])), crs = 32614)
+```
+
+```{r}
+plot(cluster_field)
+```

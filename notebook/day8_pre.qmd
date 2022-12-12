@@ -1,0 +1,232 @@
+---
+title: "Avoiding code duplication - iterations"
+format: html
+editor: visual
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+# Iterating
+
+### What are iterations?
+
+Reducing code duplication has three main benefits:
+
+It's easier to see the intent of your code, because your eyes are drawn to what's different, not what stays the same.
+
+It's easier to respond to changes in requirements. As your needs change, you only need to make changes in one place, rather than remembering to change every place that you copied-and-pasted the code.
+
+You're likely to have fewer bugs because each line of code is used in more places.
+
+## For loops
+#OLD SCHOOL: no se usa mucho, solo para este caso (for loops)
+
+```{r}
+years <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", 10:22)
+for (i in years) {
+  data.frame(day = 1:31, month = "January",
+             temp_min = rnorm(31, -12, 3),
+             temp_max = rnorm(31, -2, 3)) %>%
+    write.csv(paste0("../data/weather/temp_20", i ,".csv"), row.names = FALSE)
+}
+```
+#camino largo
+```{r}
+#camino largo de hacerlo
+
+weather_comp <- read.csv("../data/weather/temp_2001.csv") %>%
+  mutate(year = 2001) %>%
+  
+  bind_rows(read.csv("../data/weather/temp_2002.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2003.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2004.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2005.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2006.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2007.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2008.csv"))  %>%
+  bind_rows(read.csv("../data/weather/temp_2009.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2010.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2011.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2012.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2013.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2014.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2015.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2016.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2017.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2018.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2019.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2020.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2021.csv")) %>%
+  bind_rows(read.csv("../data/weather/temp_2022.csv")) #aca une los datos directamente (la diferencia con r bind es que son diferentes paquetes nomas, diferente teoria)
+  
+```
+
+
+
+# camino corto
+```{r}
+ 
+
+#####object to store information
+weather_complete <- data.frame()
+
+
+#con for loop (es un rulo pq va y vuelve cada vez que lee, o sea lee todo el 2001, vuelve lee el 2002 y asi), con esto defino i para usarlo despues
+  
+for (i in 2001:2022) {
+  
+#####storing your information
+weather_complete <- weather_complete %>%
+  bind_rows(
+  read.csv(
+  paste0("../data/weather/temp_", i,".csv")) %>%
+  mutate(year = i))
+}
+  
+  weather_complete
+
+```
+
+
+
+```{r}
+# 1. store
+df <- data.frame()
+years <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", 10:22)
+
+# sequence
+for (i in 1:length(years)) {
+  df <- df %>% 
+    bind_rows(
+      read.csv(paste0("../data/pp_", years[i] , ".csv"))
+    )
+}
+```
+
+### Example 2
+
+```{r}
+url <- "https://raw.githubusercontent.com/jlacasa/CiampittiLab-Rworkshop/main/data/lotus.csv"
+df_lotus <- read.csv(url)
+
+df_lotus <- df_lotus %>% 
+  mutate(planta = str_replace(planta , "Tr\xe9bol", "Trebol")) %>% 
+  pivot_longer(cols = tallo_1:tallo_5) %>% 
+  group_by(planta, trat, doy) %>% 
+  mutate(tallo_cm = mean(value, na.rm= T)) %>% 
+  dplyr::select(-c(name, value)) %>% 
+  unique() %>% 
+  ungroup()
+
+
+```
+
+```{r}
+df_lotus %>% 
+  pivot_longer(cols = flores:tallo_cm) %>% 
+  ggplot(aes(doy, value))+
+  geom_point()+
+  facet_wrap(~name, scales = 'free')
+```
+
+```{r}
+df_lotus %>% 
+  ggplot(aes(doy, pac))+
+  geom_point(aes(color = trat))+
+  facet_wrap(~planta)
+```
+
+```{r}
+df_lotus_summary <- df_lotus %>%
+  group_by(planta, trat, doy) %>% 
+  summarise_all(.funs = c(mean, sd), na.rm = T)
+
+df_lotus_summary %>% 
+  ggplot(aes(doy, pac_fn1))+
+  geom_line(aes(group = trat, linetype = trat))+
+  geom_errorbar(aes(ymin = pac_fn1 - pac_fn2, ymax = pac_fn1 + pac_fn2), 
+                width = 2)+
+  geom_point()+
+  facet_wrap(~planta)+
+  labs(x = "Day of the year", 
+       y = "Aboveground biomass (g)",
+       linetype = "Treatment")
+```
+
+## Map functions: ANOVAS DIFERENTS VARIABLES
+
+A repetitive task...
+
+
+
+#camino largo o para pocas variables
+
+```{r}
+
+lm_greenleaves <- lm(hv ~ planta -1, data = df_lotus)
+lm_deadleaves <- lm(hm ~ planta -1, data = df_lotus)
+lm_w <- lm(pac ~ planta -1, data = df_lotus)
+lm_roots <- lm(rsum ~ planta -1, data = df_lotus)
+
+#esto hariamos si hay pocas, pero si hay muchos datos tenemos otros caminos.
+
+```
+
+#camino corto: primero pivot_longer
+```{r}
+#miro cuatas columnas tengo, la primera y la ultima
+
+df_lotus_long <- df_lotus %>% 
+  pivot_longer(cols = flores:tallo_cm) #una vez que mire las columnas, hago un pivot_longer
+
+```
+
+#camino largo, filtro por los nombres de las plantas
+```{r}
+#con esto tengo que hacer para cada uno un objeto y filtrar.
+
+lm_greenleaves <- lm(value ~ planta -1, 
+                     data = df_lotus_long %>%
+                       filter(name == "hv"))
+
+lm_deadleaves <- lm(value ~ planta -1,
+                    data = df_lotus_long %>%
+                      filter(name == "hm"))
+
+lm_w <- lm(value ~ planta -1, data = df_lotus_long %>%
+                       filter(name == "pac"))
+
+```
+#camino corto de lo de arriba
+```{r}
+#aca hago un group by por los nombres (mas corto), con nest() lo que hago son mini data frames por cada columna
+
+prueba <- df_lotus_long %>% 
+  group_by(name) %>%
+  nest() %>% #la data esta dentro de <tibble> (correr para verlo)
+  mutate(model = data %>% 
+           map(~lm(value ~ planta -1, data = .))) #hago una columna model y a la columna data le agrego una funcion "map" que es para decir que en cada fila de data haga una funcion lm.
+
+#PARA VER COMO SE VE CADA MINI DATA FRAME....
+#view(prueba) 
+```
+
+## Functions
+
+```{r}
+print("Hi my name is Peter")
+print("Hi my name is Jessica")
+print("Hi my name is Sandra")
+print("Hi my name is Esteban")
+print("Hi my name is Stephen")
+print("Hi my name is John")
+print("Hi my name is Sarah")
+```
+
+### Give an output
+
+```{r}
+
+```

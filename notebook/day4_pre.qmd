@@ -1,0 +1,222 @@
+---
+title: "Day 4"
+format: html
+editor: visual
+---
+
+#ORDER\_ Libraries, Data, Exploratory date, Analysis.
+
+### Libraries
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(wiqid)
+```
+
+### Data
+
+```{r, warning=FALSE}
+data4 <- read.csv("../data/day4_data.csv") %>% 
+  rename(Site = TRT#,
+         # N_kgha = N_fert,
+         # SOM_perc = SOM
+         ) 
+```
+
+### Exploratory data analysis
+
+```{r}
+glimpse(data4)
+summary(data4)
+```
+
+```{r}
+
+data4 %>%
+  group_by(Site) %>%
+  summarise(n())
+  
+  
+```
+
+```{r}
+
+data4 %>% 
+  ggplot(aes(GY_mgha))+
+  geom_histogram()
+
+
+```
+
+sigo explorando
+
+```{r}
+
+data4 %>%
+  pivot_longer(cols = -c(ID, Site)) %>% #toods los nombres de la columna se convierten en una columna y cada valor va a su columna correspondiente
+  ggplot(aes(value))+
+  geom_histogram()+
+  facet_wrap(~name, scales = 'free')+ #aca lo que hago es separar por la columna name y lo hago en free scale porque se ve mejor cada uno.
+  theme(aspect.ratio = 1)
+
+#esto es bueno para explorar mucha data junta porque me da una idea de que tengo
+
+```
+
+```{r}
+unique(data4$Site)
+class(Site)
+```
+
+```{r}
+data4 %>% 
+  ggplot(aes(factor(Site), SOM))+ #Site es numerica pero deberia ser categorica por eso va entre factor() y SOM es continua.
+  geom_boxplot()
+
+
+#con esto pued ver la distribucion de los datos
+```
+
+```{r}
+#aca lo mismo, tengo una data categorical y otra numerica por eso puedo usar este tipo de graficos.
+
+data4 %>% 
+  ggplot(aes(factor(Site), GY_mgha))+
+  geom_violin()
+
+```
+
+```{r}
+#si quiero ver un grafico con 2 variables continuas elijo graficos como el de puntos 
+
+data4 %>% 
+  ggplot(aes(x = N_fert, y = GY_mgha))+
+  geom_point()
+              
+```
+
+```{r}
+#si quiero ver un grafico con 2 variables continuas elijo graficos como puntos 
+
+
+data4 %>% 
+  ggplot(aes(N_fert, GY_mgha))+
+  geom_point()+
+  geom_smooth(method = "lm")
+
+```
+
+### Analysis
+
+# function lm
+
+```{r}
+# y (observed value) = u (mu puede estar o no) + Ti (mean) + Eij (error)
+
+#lm function, asumis que Y es normal distribution y Error tambien.
+# lm (Y (aca va col name) ~ x + 1 (que esta implicito))
+#first try
+m1 <- lm(GY_mgha ~ Site, data = data4)
+summary(m1)
+
+```
+
+#function lm, factor site y + 1
+
+```{r}
+m2 <- lm(GY_mgha ~ factor(Site), data = data4) #aca site lo convierto a factor porque es class numeric y necesita ser categorical.
+summary(m2)
+
+#la funcion asume que tenes una incercept pq  asume 1 +.. en la funcion.
+# Incertecept and the effect of that intercept : eso son los factor(site)2, factor(site)3.. que tengo en la columna cuando corro la funcion en summary. 
+#aca miro la columna Estimate y el p valor. EJEMPLO: factor(Site)4 -1.32513 (estimate) 0.37063 (Std. Error) -3.575  0.0010 (p value o Pr(>|t|)), ACA TENGO UN P VALOR MENOR A 0.005, ESO QUIERE DECIR QUE SE CUMPLE MI "HIPOTESIS"
+
+#Multiple R-squared: ES LA PROPORCION DE LA VARIACION DE LA DATA QUE ES EXPLICADA POR EL MODELO.
+# p-value: 0.001962: ESTA A LO ULTIMO Y EXPLICA SI ES BUENO O NO EL MODELO, CON TODOS LOS DATOS.
+
+
+```
+
+#function lm, con 0 + y plot.
+
+```{r}
+m3 <- lm(GY_mgha ~ 0 + factor(Site), data = data4) 
+#si no tengo intercepcion detallo 0 +.. en la funcion, o podes agregar un -1 despues de factor(site)
+#m3 <- lm(GY_mgha ~ factor(Site) - 1 , data = data4) es bueno entender cuando hago un modelo. ACA ES OBVIO QUE YIELD ES DIFERENTE DE 0 POR ESO TENGO DIFERENCIAS SIGNIFICATIVAS CUANDO CORRO LA FUNCION.
+
+#t value es un p valor.
+
+plot(m3) #con esto puedo ver varios testeos, para ver si su distribucion es normal o no
+car::leveneTest(GY_mgha ~ 0 + factor(Site), data = data4)
+```
+
+#ANOVA
+
+```{r}
+#EN CAR PACKAGES, OJO PORQUE anova es diferente a Anova.
+#nálisis de la Varianza ( ANOVA ) es una fórmula estadística que se utiliza para comparar las varianzas entre las medias (o el promedio) de diferentes grupos. Una variedad de contextos lo utilizan para determinar si existe alguna diferencia entre las medias de los diferentes grupos.
+
+
+car::Anova(m3)
+
+
+```
+
+#M4
+
+```{r}
+#cuando tenes una variable continua.. tenes dos tipos de modelos 
+    # m4 es cuando no tenes intercepcion (dibujo en mi cuaderno)
+
+
+m4 <- lm(GY_mgha ~ 0+ N_fert, data = data4) 
+summary(m4)
+#en el resultado.. 
+
+plot(m4)
+```
+
+#M5
+
+```{r}
+#cuando tenes una variable continua.. tenes dos tipos de modelos 
+    # m5 es cuando tenes intercepcion (dibujo en mi cuaderno)
+
+
+m5 <- lm(GY_mgha ~  N_fert, data = data4) 
+summary(m5)
+#el resultado.. (Intercept)  4.41328 seria en la formula B0 (ver cuaderno)
+
+plot(m5)
+```
+
+#AIC
+
+```{r}
+#AKAIKE: valores menores indican un mejor modelo. Entonces con AIC, intento ver cual modelo explica mejor, 
+
+AIC(m4)
+AIC(m5)
+
+```
+
+#M6
+
+```{r}
+#es una combinacion entre una variable categorica (factor site) y una numerica (n ferti y su efecto es la pendiente en la grafica)
+#mi cuaderno tiene grafica y formula correspondiente
+
+m6 <- lm(GY_mgha ~  N_fert + factor(Site), data = data4) 
+summary(m6) 
+plot(m6)
+
+```
+
+#AIC TABLE
+
+```{r}
+#AIC table, es para cuando tengo varios modelos para comparar. RECORDAR QUE VALORES DE AICc es.. que el que tenga el valor mas bajo, es el modelo que mejor lo explica.
+
+AICtable(AICc(m4, m5, m6))
+```
